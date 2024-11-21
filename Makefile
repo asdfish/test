@@ -1,3 +1,9 @@
+define GET_SOURCE_FILES
+$(patsubst src/%.$(1),$\
+	build/%.$(1).o,$\
+	$(shell find src -name '*.$(1)' -type f))
+endef
+
 CC ?= cc
 CXX ?= c++
 
@@ -10,29 +16,23 @@ COMMONFLAGS := -Wall -Wextra -Wpedantic $\
 C_STANDARD := -std=c99
 CXX_STANDARD := -std=c++98
 
-C_OBJECT_FILES := $(patsubst src/%.c,$\
-										build/%.c.o,$\
-										$(shell find src -name '*.c' -type f))
-CXX_OBJECT_FILES := $(patsubst src/%.cpp,$\
-											build/%.cpp.o,$\
-											$(shell find src -name '*.cpp' -type f))
-
-OBJECT_FILES := ${C_OBJECT_FILES} ${CXX_OBJECT_FILES}
+OBJECT_FILES := $(call GET_SOURCE_FILES,c) $\
+								$(call GET_SOURCE_FILES,cpp)
 
 PROCESS_HEADER_FILES := yes
-C_PROCESSED_HEADER_FILES := $(subst .h,$\
-															$(if $(findstring clang,${CC}),$\
-																.h.pch,$\
-																.h.gch),$\
-															$(shell find include -name '*.h' -type f))
-CXX_PROCESSED_HEADER_FILES := $(subst .hpp,$\
-																$(if $(findstring clang,${CC}),$\
-																	.hpp.pch,$\
-																	.hpp.gch),$\
-																$(shell find include -name '*.hpp' -type f))
-PROCESSED_HEADER_FILES := ${C_PROCESSED_HEADER_FILES} ${CXX_PROCESSED_HEADER_FILES}
+define GET_PROCESSED_HEADER_FILES
+$(if ${PROCESS_HEADER_FILES},$\
+	$(subst .$(1),$\
+		$(if $(findstring clang,${CC}${CXX}),$\
+			.$(1).pch,$\
+			.$(1).gch),$\
+		$(shell find include -name '*.$(1)' -type f)))
+endef
 
-TEST_REQUIREMENTS := $(if ${PROCESS_HEADER_FILES},${PROCESSED_HEADER_FILES}) ${OBJECT_FILES}
+PROCESSED_HEADER_FILES := $(call GET_PROCESSED_HEADER_FILES,h) $\
+													$(call GET_PROCESSED_HEADER_FILES,hpp)
+
+TEST_REQUIREMENTS := ${PROCESSED_HEADER_FILES} ${OBJECT_FILES}
 
 define C_COMPILE
 ${CC} -c $1 ${C_STANDARD} ${CFLAGS} ${COMMONFLAGS} -o $2
